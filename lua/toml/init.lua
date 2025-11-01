@@ -118,7 +118,7 @@ function M._keys(input, e)
   if #keys == 0 then
     M._error(input)
   end
-  
+
   return keys
 end
 
@@ -147,7 +147,9 @@ function M._value(input)
     return M._datetime(input)
   elseif M._match(input, '\\d\\{2}:') then
     return M._local_time(input)
-  elseif M._match(input, [[[+-]\?\d\+\%(_\d\+\)*\%(\.\d\+\%(_\d\+\)*\|\%(\.\d\+\%(_\d\+\)*\)\?[eE]\)]]) then
+  elseif
+    M._match(input, [[[+-]\?\d\+\%(_\d\+\)*\%(\.\d\+\%(_\d\+\)*\|\%(\.\d\+\%(_\d\+\)*\)\?[eE]\)]])
+  then
     return M._float(input)
   elseif M._match(input, [[[+-]\?\%(inf\|nan\)]]) then
     return M._special_float(input)
@@ -325,7 +327,6 @@ local function has_key(t, k)
 end
 
 function M._put_dict(dict, keys, value)
-
   local ref = dict
   local i = 1
   for _, key in ipairs(keys) do
@@ -343,14 +344,16 @@ function M._put_dict(dict, keys, value)
     i = i + 1
   end
 
-  if is_table(ref) and vim.fn.has_key(ref, keys[#keys])
+  if
+    is_table(ref)
+    and vim.fn.has_key(ref, keys[#keys])
     and is_table(ref[keys[#keys]])
-    and is_table(value) then
+    and is_table(value)
+  then
     vim.fn.extend(ref[keys[#keys]], value)
   else
     ref[keys[#keys]] = value
   end
-
 end
 
 function M._put_array(dict, keys, value)
