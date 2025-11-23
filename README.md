@@ -15,6 +15,12 @@ require('plug').add({
 })
 ```
 
+Using [luarocks](https://luarocks.org/)
+
+```
+luarocks install toml.nvim
+```
+
 ## Usage
 
 
