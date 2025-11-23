@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/wsdjeg/toml.nvim/compare/v1.0.0...v1.1.0) (2025-11-23)
+
+
+### Features
+
+* add luarocks support ([97e00bc](https://github.com/wsdjeg/toml.nvim/commit/97e00bc890e518e18c445d02162a003fe27d747b))
+
 ## 1.0.0 (2025-11-01)
 
 
