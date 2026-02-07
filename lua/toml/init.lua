@@ -6,20 +6,27 @@
 -- License: GPLv3
 --=============================================================================
 
+---@class TomlInput
+---@field text string
+---@field p integer
+---@field length integer
+
+---@class Toml
 local M = {}
 
+---@param text string
 function M.parse(text)
-  local input = {
+  return M._parse({
     text = text,
     p = 0,
     length = vim.fn.strlen(text),
-  }
-  return M._parse(input)
+  })
 end
 
+---@param filename string
 function M.parse_file(filename)
   if vim.fn.filereadable(filename) == 0 then
-    error('toml API: No such file ' .. filename)
+    error(('toml API: No such file %s'):format(filename))
   end
 
   local text = table.concat(vim.fn.readfile(filename), '\n')
@@ -30,24 +37,24 @@ end
 local skip_pattern = [[\C^\%(\%(\s\|\r\?\n\)\+\|#[^\r\n]*\)]]
 local bare_key_pattern = [[\%([A-Za-z0-9_-]\+\)]]
 
+---@param input TomlInput
 function M._skip(input)
   while M._match(input, [[\%(\s\|\r\?\n\|#\)]]) do
     input.p = vim.fn.matchend(input.text, skip_pattern, input.p)
   end
 end
-local regex_prefix = ''
-if vim.fn.exists('+regexpengine') == 1 then
-  regex_prefix = '\\%#=1\\C^'
-else
-  regex_prefix = '\\C^'
-end
+local regex_prefix = vim.fn.exists('+regexpengine') == 1 and '\\%#=1\\C^' or '\\C^'
 
+---@param input TomlInput
+---@param pattern string
+---@return string matched
 function M._consume(input, pattern)
   M._skip(input)
   local _end = vim.fn.matchend(input.text, regex_prefix .. pattern, input.p)
   if _end == -1 then
     M._error(input)
-  elseif _end == input.p then
+  end
+  if _end == input.p then
     return ''
   end
   local matched = vim.fn.strpart(input.text, input.p, _end - input.p)
@@ -55,21 +62,35 @@ function M._consume(input, pattern)
   return matched
 end
 
+---@param input TomlInput
+---@param pattern string
+---@return boolean match
 function M._match(input, pattern)
   return vim.fn.match(input.text, regex_prefix .. pattern, input.p) ~= -1
 end
 
+---@param input TomlInput
+---@return boolean is_eof
 function M._eof(input)
   return input.p >= input.length
 end
 
+---@param input TomlInput
 function M._error(input)
-  local s = vim.fn.matchstr(input.text, regex_prefix .. [[.\{-}\ze\%(\r\?\n\|$\)]], input.p)
-  s = vim.fn.substitute(s, '\\r', '\\\\r', 'g')
-
-  error('toml API: Illegal TOML format at ' .. s)
+  error(
+    ('toml API: Illegal TOML format at %s'):format(
+      vim.fn.substitute(
+        vim.fn.matchstr(input.text, regex_prefix .. [[.\{-}\ze\%(\r\?\n\|$\)]], input.p),
+        '\\r',
+        '\\\\r',
+        'g'
+      )
+    )
+  )
 end
 
+---@param input TomlInput
+---@return table data
 function M._parse(input)
   local data = {}
   M._skip(input)
@@ -78,15 +99,12 @@ function M._parse(input)
       local keys = M._keys(input, '=')
       M._equals(input)
       local value = M._value(input)
-
       M._put_dict(data, keys, value)
     elseif M._match(input, '\\[\\[') then
       local keys, value = M._array_of_tables(input)
-
       M._put_array(data, keys, value)
     elseif M._match(input, '\\[') then
       local keys, value = M._table(input)
-
       M._put_dict(data, keys, value)
     else
       M._error(input)
@@ -96,9 +114,11 @@ function M._parse(input)
   return data
 end
 
+---@param input TomlInput
+---@param e string
+---@return string[] keys
 function M._keys(input, e)
-  local keys = {}
-
+  local keys = {} ---@type string[]
   while not M._eof(input) and not M._match(input, e) do
     M._skip(input)
     local key
@@ -115,83 +135,101 @@ function M._keys(input, e)
     M._consume(input, '\\.\\?')
   end
 
-  if #keys == 0 then
+  if vim.tbl_isempty(keys) then
     M._error(input)
   end
 
   return keys
 end
 
+---@param input TomlInput
+---@return '=' eq
 function M._equals(input)
   M._consume(input, '=')
   return '='
 end
 
+---@param input TomlInput
+---@return (boolean|string|number|table)[]|boolean|string|number value
 function M._value(input)
   M._skip(input)
   if M._match(input, '"\\{3}') then
     return M._multiline_basic_string(input)
-  elseif M._match(input, '"\\{1}') then
+  end
+  if M._match(input, '"\\{1}') then
     return M._basic_string(input)
-  elseif M._match(input, "'\\{3}") then
+  end
+  if M._match(input, "'\\{3}") then
     return M._multiline_literal(input)
-  elseif M._match(input, "'\\{1}") then
+  end
+  if M._match(input, "'\\{1}") then
     return M._literal(input)
-  elseif M._match(input, '\\[') then
+  end
+  if M._match(input, '\\[') then
     return M._array(input)
-  elseif M._match(input, '{') then
+  end
+  if M._match(input, '{') then
     return M._inline_table(input)
-  elseif M._match(input, '\\%(true\\|false\\)') then
+  end
+  if M._match(input, '\\%(true\\|false\\)') then
     return M._boolean(input)
-  elseif M._match(input, '\\d\\{4}-') then
+  end
+  if M._match(input, '\\d\\{4}-') then
     return M._datetime(input)
-  elseif M._match(input, '\\d\\{2}:') then
+  end
+  if M._match(input, '\\d\\{2}:') then
     return M._local_time(input)
-  elseif
+  end
+  if
     M._match(input, [[[+-]\?\d\+\%(_\d\+\)*\%(\.\d\+\%(_\d\+\)*\|\%(\.\d\+\%(_\d\+\)*\)\?[eE]\)]])
   then
     return M._float(input)
-  elseif M._match(input, [[[+-]\?\%(inf\|nan\)]]) then
-    return M._special_float(input)
-  else
-    return M._integer(input)
   end
+  if M._match(input, [[[+-]\?\%(inf\|nan\)]]) then
+    return M._special_float(input)
+  end
+  return M._integer(input)
 end
 
+---@param input TomlInput
+---@return string str
 function M._basic_string(input)
   local s = M._consume(input, [["\%(\\"\|[^"]\)*"]])
-  s = string.sub(s, 2, #s - 1)
-  return M._unescape(s)
+  return M._unescape(s:sub(2, s:len() - 1))
 end
 
+---@param input TomlInput
+---@return string str
 function M._multiline_basic_string(input)
   local s = M._consume(input, [["\{3}\%(\\.\|\_.\)\{-}"\{,2}"\{3}]])
-  s = string.sub(s, 4, #s - 3)
-  s = vim.fn.substitute(s, [[^\r\?\n]], '', '')
+  s = vim.fn.substitute(s:sub(4, s:len() - 3), [[^\r\?\n]], '', '')
   s = vim.fn.substitute(s, [[\\\%(\s\|\r\?\n\)*]], '', 'g')
   return M._unescape(s)
 end
 
+---@param input TomlInput
+---@return string str
 function M._literal(input)
   local s = M._consume(input, "'[^']*'")
-  return string.sub(s, 2, #s - 1)
+  return s:sub(2, s:len() - 1)
 end
 
+---@param input TomlInput
+---@return string str
 function M._multiline_literal(input)
   local s = M._consume(input, [['\{3}.\{-}'\{,2}'\{3}]])
-  s = string.sub(s, 4, #s - 3)
-  s = vim.fn.substitute(s, [[^\r\?\n]], '', '')
-  return s
+  return vim.fn.substitute(s:sub(4, s:len() - 3), [[^\r\?\n]], '', '')
 end
 
+---@param input TomlInput
+---@return integer nr
 function M._integer(input)
-  local s, base
+  local s, base ---@type string, integer
   if M._match(input, '0b') then
     s = M._consume(input, [[0b[01]\+\%(_[01]\+\)*]])
     base = 2
   elseif M._match(input, '0o') then
-    s = M._consume(input, [[0o[0-7]\+\%(_[0-7]\+\)*]])
-    s = string.sub(s, 3)
+    s = M._consume(input, [[0o[0-7]\+\%(_[0-7]\+\)*]]):sub(3)
     base = 8
   elseif M._match(input, '0x') then
     s = M._consume(input, [['0x[A-Fa-f0-9]\+\%(_[A-Fa-f0-9]\+\)*]])
@@ -200,41 +238,55 @@ function M._integer(input)
     s = M._consume(input, [[[+-]\?\d\+\%(_\d\+\)*]])
     base = 10
   end
-  s = vim.fn.substitute(s, '_', '', 'g')
-  return vim.fn.str2nr(s, base)
+  return vim.fn.str2nr(vim.fn.substitute(s, '_', '', 'g'), base)
 end
 
+---@param input TomlInput
+---@return number float
 function M._float(input)
-  local s = M._consume(input, [[[+-]\?[0-9._]\+\%([eE][+-]\?\d\+\%(_\d\+\)*\)\?]])
-  s = vim.fn.substitute(s, '_', '', 'g')
-  return vim.fn.str2float(s)
+  return vim.fn.str2float(
+    vim.fn.substitute(
+      M._consume(input, [[[+-]\?[0-9._]\+\%([eE][+-]\?\d\+\%(_\d\+\)*\)\?]]),
+      '_',
+      '',
+      'g'
+    )
+  )
 end
 
+---@param input TomlInput
+---@return number special_float
 function M._special_float(input)
-  local s = M._consume(input, [[[+-]\?\%(inf\|nan\)]])
-  s = vim.fn.substitute(s, '_', '', 'g')
-  return vim.fn.str2float(s)
+  return vim.fn.str2float(
+    vim.fn.substitute(M._consume(input, [[[+-]\?\%(inf\|nan\)]]), '_', '', 'g')
+  )
 end
 
+---@param input TomlInput
+---@return boolean bool
 function M._boolean(input)
-  local s = M._consume(input, [[\%(true\|false\)]])
-  return s == 'true'
+  return M._consume(input, [[\%(true\|false\)]]) == 'true'
 end
 
+---@param input TomlInput
+---@return string datetime
 function M._datetime(input)
-  local s = M._consume(
+  return M._consume(
     input,
     [[\d\{4}-\d\{2}-\d\{2}\%([T ]\d\{2}:\d\{2}:\d\{2}\%(\.\d\+\)\?\%(Z\|[+-]\d\{2}:\d\{2}\)\?\)\?]]
   )
-  return s
 end
 
+---@param input TomlInput
+---@return string localtime
 function M._local_time(input)
   return M._consume(input, [[\d\{2}:\d\{2}:\d\{2}\%(\.\d\+\)\?]])
 end
 
+---@param input TomlInput
+---@return (boolean|string|number|table)[] ary
 function M._array(input)
-  local ary = {}
+  local ary = {} ---@type (boolean|string|number|table)[]
   M._consume(input, '\\[')
   M._skip(input)
   while not M._eof(input) and not M._match(input, '\\]') do
@@ -246,6 +298,9 @@ function M._array(input)
   return ary
 end
 
+---@param input TomlInput
+---@return string[] name
+---@return table tbl
 function M._table(input)
   local tbl = {}
   M._consume(input, '\\[')
@@ -262,6 +317,8 @@ function M._table(input)
   return name, tbl
 end
 
+---@param input TomlInput
+---@return table tbl
 function M._inline_table(input)
   local tbl = {}
   M._consume(input, '{')
@@ -276,6 +333,9 @@ function M._inline_table(input)
   return tbl
 end
 
+---@param input TomlInput
+---@return string[] name
+---@return table tbl
 function M._array_of_tables(input)
   local tbl = {}
   M._consume(input, '\\[\\[')
@@ -311,7 +371,8 @@ function M._nr2char(nr)
 end
 
 local function is_list(t)
-  return vim.tbl_islist(t)
+  ---@diagnostic disable-next-line:deprecated
+  return vim.fn.has('nvim-0.10') == 1 and vim.islist(t) or vim.tbl_islist(t)
 end
 
 local function is_table(t)
@@ -319,13 +380,12 @@ local function is_table(t)
 end
 
 local function has_key(t, k)
-  if type(t) == 'table' and t[k] ~= nil then
-    return true
-  else
-    return false
-  end
+  return type(t) == 'table' and t[k] ~= nil
 end
 
+---@param dict table
+---@param keys string[]
+---@param value any
 function M._put_dict(dict, keys, value)
   local ref = dict
   local i = 1
@@ -356,6 +416,9 @@ function M._put_dict(dict, keys, value)
   end
 end
 
+---@param dict table
+---@param keys string[]
+---@param value any
 function M._put_array(dict, keys, value)
   local ref = dict
   local i = 1
