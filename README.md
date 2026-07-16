@@ -7,33 +7,61 @@
 [![GitHub Release](https://img.shields.io/github/v/release/wsdjeg/toml.nvim)](https://github.com/wsdjeg/toml.nvim/releases)
 [![luarocks](https://img.shields.io/luarocks/v/wsdjeg/toml.nvim)](https://luarocks.org/modules/wsdjeg/toml.nvim)
 
+<!-- vim-markdown-toc GFM -->
 
-## Installation
+- [📘 Intro](#-intro)
+- [✨ Features](#-features)
+- [📦 Installation](#-installation)
+- [🔧 API](#-api)
+- [⚙️ Usage](#-usage)
+- [📖 TOML Features](#-toml-features)
+- [💡 Practical Examples](#-practical-examples)
+- [📣 Self-Promotion](#-self-promotion)
+- [🙏 Acknowledgments](#-acknowledgments)
+- [💬 Feedback & License](#-feedback--license)
+
+<!-- vim-markdown-toc -->
+
+## 📘 Intro
+
+`toml.nvim` is a TOML parser API for Neovim, providing `toml.parse()` and `toml.parse_file()`
+to parse TOML strings and files into Lua tables. No external dependencies required.
+
+## ✨ Features
+
+- **📄 Parse Strings & Files** - `toml.parse(text)` and `toml.parse_file(filename)`
+- **🔢 Full Type Support** - Strings, integers (hex/octal/binary), floats, booleans, datetimes
+- **📊 Tables** - Standard tables, inline tables, array of tables, dotted keys
+- **📝 Arrays** - Mixed types, nested arrays
+- **💬 Comments** - Inline and full-line comments
+- **🚫 Zero Dependencies** - Pure Lua implementation, no external libraries needed
+
+## 📦 Installation
 
 Using [nvim-plug](https://github.com/wsdjeg/nvim-plug):
 
 ```lua
 require('plug').add({
-    {
-        'wsdjeg/toml.nvim',
-    },
+  {
+    'wsdjeg/toml.nvim',
+  },
 })
 ```
 
-Using [luarocks](https://luarocks.org/)
+Using [LuaRocks](https://luarocks.org/):
 
-```
+```sh
 luarocks install toml.nvim
 ```
 
-## API
+## 🔧 API
 
 | Function | Description |
 |----------|-------------|
 | `toml.parse(text)` | Parse a TOML string, returns a Lua table |
 | `toml.parse_file(filename)` | Parse a TOML file, returns a Lua table |
 
-## Usage
+## ⚙️ Usage
 
 ### Parse a string
 
@@ -53,10 +81,10 @@ ports = [8001, 8001, 8002]
 ]]
 
 local data = toml.parse(text)
-print(data.title)                --> "TOML Example"
-print(data.owner.name)           --> "Tom Preston-Werner"
-print(data.database.enabled)     --> true
-print(data.database.ports[2])    --> 8001
+print(data.title)             --> "TOML Example"
+print(data.owner.name)        --> "Tom Preston-Werner"
+print(data.database.enabled)  --> true
+print(data.database.ports[2]) --> 8001
 ```
 
 ### Parse a file
@@ -76,9 +104,23 @@ vim.print(config)
 -- }
 ```
 
-### Supported TOML features
+### Error handling
 
-#### Strings
+`toml.parse` and `toml.parse_file` raise an error on invalid TOML.
+Use `pcall` to handle it gracefully:
+
+```lua
+local toml = require('toml')
+
+local ok, result = pcall(toml.parse, 'invalid = = toml')
+if not ok then
+  print('Parse error: ' .. result)
+end
+```
+
+## 📖 TOML Features
+
+### Strings
 
 ```lua
 local data = toml.parse([[
@@ -89,13 +131,13 @@ first line
 second line"""
 ]])
 
-print(data.basic)         --> hello world
-print(data.literal)       --> C:\Users\name\not_escape
-print(data.multiline)     --> first line
-                            --  second line
+print(data.basic)     --> hello world
+print(data.literal)   --> C:\Users\name\not_escape
+print(data.multiline) --> first line
+                       --  second line
 ```
 
-#### Integers
+### Integers
 
 ```lua
 local data = toml.parse([[
@@ -105,13 +147,13 @@ octal   = 0o17
 binary  = 0b1010
 ]])
 
-print(data.decimal)   --> 42
-print(data.hex)       --> 255
-print(data.octal)     --> 15
-print(data.binary)    --> 10
+print(data.decimal) --> 42
+print(data.hex)     --> 255
+print(data.octal)   --> 15
+print(data.binary)  --> 10
 ```
 
-#### Floats and booleans
+### Floats and booleans
 
 ```lua
 local data = toml.parse([[
@@ -121,12 +163,12 @@ flag  = true
 off   = false
 ]])
 
-print(data.pi)    --> 3.14
-print(data.flag)  --> true
-print(data.off)   --> false
+print(data.pi)   --> 3.14
+print(data.flag) --> true
+print(data.off)  --> false
 ```
 
-#### Arrays
+### Arrays
 
 ```lua
 local data = toml.parse([[
@@ -140,7 +182,7 @@ print(data.nested[2][1]) --> 3
 print(data.mixed[3])     --> c
 ```
 
-#### Tables
+### Tables
 
 ```lua
 local data = toml.parse([[
@@ -151,7 +193,7 @@ key = "value"
 print(data.a.b.c.key) --> value
 ```
 
-#### Inline tables
+### Inline tables
 
 ```lua
 local data = toml.parse([[
@@ -162,13 +204,13 @@ print(data.point.x) --> 1
 print(data.point.y) --> 2
 ```
 
-#### Array of inline tables
+### Array of inline tables
 
 ```lua
 local data = toml.parse([[
 authors = [
-    { name = "Alice", email = "alice@example.com" },
-    { name = "Bob",   email = "bob@example.com" },
+  { name = "Alice", email = "alice@example.com" },
+  { name = "Bob",   email = "bob@example.com" },
 ]
 ]])
 
@@ -176,7 +218,7 @@ print(data.authors[1].name)  --> Alice
 print(data.authors[2].email) --> bob@example.com
 ```
 
-#### Array of tables
+### Array of tables
 
 ```lua
 local data = toml.parse([[
@@ -191,7 +233,7 @@ print(data.fruits[1].name) --> apple
 print(data.fruits[2].name) --> banana
 ```
 
-#### Dotted keys
+### Dotted keys
 
 ```lua
 local data = toml.parse('a.b.c = "deep"')
@@ -199,7 +241,7 @@ local data = toml.parse('a.b.c = "deep"')
 print(data.a.b.c) --> deep
 ```
 
-#### Comments
+### Comments
 
 ```lua
 local data = toml.parse([[
@@ -210,7 +252,27 @@ port = 8080  # default port
 print(data.port) --> 8080
 ```
 
-### Practical example: parse pyproject.toml
+## 💡 Practical Examples
+
+### Parse Cargo.toml (Rust)
+
+```lua
+local toml = require('toml')
+
+local cargo = toml.parse_file('Cargo.toml')
+
+-- Access package metadata
+print(cargo.package.name)
+print(cargo.package.version)
+print(cargo.package.edition)
+
+-- Iterate over dependencies
+for name, version in pairs(cargo.dependencies or {}) do
+  print(name, version)
+end
+```
+
+### Parse pyproject.toml (Python)
 
 ```lua
 local toml = require('toml')
@@ -226,30 +288,36 @@ print(project.project.version)
 
 -- Iterate over authors (array of inline tables)
 for _, author in ipairs(project.project.authors or {}) do
-    print(author.name, author.email)
+  print(author.name, author.email)
 end
 
 -- Get dependencies
 for _, dep in ipairs(project.project.dependencies or {}) do
-    print(dep)
+  print(dep)
 end
 ```
 
-### Error handling
+## 📣 Self-Promotion
 
-`toml.parse` and `toml.parse_file` raise an error on invalid TOML.
-Use `pcall` to handle it gracefully:
+If you like this plugin, please star it on [GitHub](https://github.com/wsdjeg/toml.nvim).
+Also check out my other Neovim plugins:
 
-```lua
-local toml = require('toml')
+- [chat.nvim](https://github.com/wsdjeg/chat.nvim) - AI chat plugin with multi-provider support
+- [nvim-plug](https://github.com/wsdjeg/nvim-plug) - Asynchronous plugin manager
+- [picker.nvim](https://github.com/wsdjeg/picker.nvim) - Fuzzy picker
+- [flygrep.nvim](https://github.com/wsdjeg/flygrep.nvim) - Asynchronous grep
 
-local ok, result = pcall(toml.parse, 'invalid = = toml')
-if not ok then
-    print('Parse error: ' .. result)
-end
-```
+## 🙏 Acknowledgments
 
-## Acknowledgments
+This project is forked from [SpaceVim's toml API](https://github.com/wsdjeg/SpaceVim/blob/eed9d8f14951d9802665aa3429e449b71bb15a3a/lua/spacevim/api/data/toml.lua).
+Thanks to the SpaceVim team for the original implementation.
 
-This project is forked from [SpaceVim's toml API](https://github.com/wsdjeg/SpaceVim/blob/eed9d8f14951d9802665aa3429e449b71bb15a3a/lua/spacevim/api/data/toml.lua). Thanks to the SpaceVim team for the original implementation.
+## 💬 Feedback & License
+
+- **GitHub Issues**: [Report bugs or request features](https://github.com/wsdjeg/toml.nvim/issues)
+- **Author**: [wsdjeg](https://wsdjeg.net/)
+
+toml.nvim is released under the [GPL-3.0 License](LICENSE).
+
+<!-- vim:set nowrap: -->
 
