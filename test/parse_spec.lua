@@ -72,6 +72,92 @@ function TestParse:test_inline_table()
   lu.assertEquals(result.key.b, 2)
 end
 
+function TestParse:test_inline_table_three_keys()
+  local result = toml.parse('key = { a = 1, b = 2, c = 3 }')
+  lu.assertEquals(result.key.a, 1)
+  lu.assertEquals(result.key.b, 2)
+  lu.assertEquals(result.key.c, 3)
+end
+
+function TestParse:test_inline_table_no_spaces()
+  local result = toml.parse('key = {a=1,b=2}')
+  lu.assertEquals(result.key.a, 1)
+  lu.assertEquals(result.key.b, 2)
+end
+
+function TestParse:test_array_of_inline_tables()
+  -- Reproduces issue #4: pyproject.toml parsing fails
+  local result = toml.parse('authors = [{ name = "John", email = "john@example.com" }]')
+  lu.assertEquals(#result.authors, 1)
+  lu.assertEquals(result.authors[1].name, 'John')
+  lu.assertEquals(result.authors[1].email, 'john@example.com')
+end
+
+function TestParse:test_array_of_multiple_inline_tables()
+  local result = toml.parse('people = [{ name = "Alice", age = 30 }, { name = "Bob", age = 25 }]')
+  lu.assertEquals(#result.people, 2)
+  lu.assertEquals(result.people[1].name, 'Alice')
+  lu.assertEquals(result.people[1].age, 30)
+  lu.assertEquals(result.people[2].name, 'Bob')
+  lu.assertEquals(result.people[2].age, 25)
+end
+
+function TestParse:test_pyproject_toml()
+  -- Reproduces issue #4: pyproject.toml parsing
+  local text = [=[
+[build-system]
+build-backend = "setuptools.build_meta"
+requires      = ["setuptools", "setuptools-scm>=8.0"]
+
+[project]
+authors = [{ name = "Guennadi Maximov C", email = "g.maxc.fox@protonmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "all",  # report on all checks, except the below
+]
+dependencies = ["argcomplete", "argparse", "colorama"]
+description = "Adds Vim EOF modeline comments"
+license = "GPL-2.0-only"
+license-files = ["LICEN[CS]E"]
+name = "vim-eof-comment"
+version = "0.8.1"
+
+    [project.scripts]
+    vim-eof-comment = "vim_eof_comment.core:main"
+
+    [project.urls]
+    Download   = "https://github.com/DrKJeff16/vim-eof-comment/releases/latest"
+    Repository = "https://github.com/DrKJeff16/vim-eof-comment"
+
+[tool.setuptools.package-data]
+"docs"            = ["*.rst"]
+"vim_eof_comment" = ["*.json", "*.py", "*.pyi", "py.typed"]
+
+[tool.ruff]
+line-length = 100
+]=]
+  local result = toml.parse(text)
+  lu.assertEquals(result['build-system']['build-backend'], 'setuptools.build_meta')
+  lu.assertEquals(result['build-system'].requires, { 'setuptools', 'setuptools-scm>=8.0' })
+  lu.assertEquals(result.project.authors[1].name, 'Guennadi Maximov C')
+  lu.assertEquals(result.project.authors[1].email, 'g.maxc.fox@protonmail.com')
+  lu.assertEquals(#result.project.classifiers, 4)
+  lu.assertEquals(result.project.classifiers[4], 'all')
+  lu.assertEquals(result.project.dependencies, { 'argcomplete', 'argparse', 'colorama' })
+  lu.assertEquals(result.project.license, 'GPL-2.0-only')
+  lu.assertEquals(result.project['license-files'], { 'LICEN[CS]E' })
+  lu.assertEquals(result.project.name, 'vim-eof-comment')
+  lu.assertEquals(result.project.version, '0.8.1')
+  lu.assertEquals(result.project.scripts['vim-eof-comment'], 'vim_eof_comment.core:main')
+  lu.assertEquals(result.project.urls.Download, 'https://github.com/DrKJeff16/vim-eof-comment/releases/latest')
+  lu.assertEquals(result.project.urls.Repository, 'https://github.com/DrKJeff16/vim-eof-comment')
+  lu.assertEquals(result.tool.setuptools['package-data'].docs, { '*.rst' })
+  lu.assertEquals(result.tool.setuptools['package-data'].vim_eof_comment, { '*.json', '*.py', '*.pyi', 'py.typed' })
+  lu.assertEquals(result.tool.ruff['line-length'], 100)
+end
+
 -- Comments
 
 function TestParse:test_comment()
