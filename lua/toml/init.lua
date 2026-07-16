@@ -232,7 +232,7 @@ function M._integer(input)
     s = M._consume(input, [[0o[0-7]\+\%(_[0-7]\+\)*]]):sub(3)
     base = 8
   elseif M._match(input, '0x') then
-    s = M._consume(input, [['0x[A-Fa-f0-9]\+\%(_[A-Fa-f0-9]\+\)*]])
+    s = M._consume(input, [[0x[A-Fa-f0-9]\+\%(_[A-Fa-f0-9]\+\)*]])
     base = 16
   else
     s = M._consume(input, [[[+-]\?\d\+\%(_\d\+\)*]])
@@ -327,6 +327,7 @@ function M._inline_table(input)
     M._equals(input)
     local value = M._value(input)
     M._put_dict(tbl, keys, value)
+    M._consume(input, ',\\?')
     M._skip(input)
   end
   M._consume(input, '}')
